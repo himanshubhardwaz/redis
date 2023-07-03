@@ -13,16 +13,21 @@ const client = createClient({
 });
 
 async function testRaceConditionWithNX() {
-  client.set('test1', 'value1');
-  await client.setNX('test1', 'value2');
+  await Promise.all([await client.set('test1', "value1"), await client.setNX('test1', 'value2')])
+    .then(() => console.log('test1 set successfully'));
 }
 
 async function testRaceConditionWithoutNX() {
-  client.set('test2', 'value1');
-  const test2 = await client.get('test2');
-  if (!test2) {
-    await client.setNX('test2', 'value2');
-  }
+  await Promise.all([
+    await client.set('test2', "value1"),
+    async () => {
+      const test2 = await client.get('test2');
+      if (!test2) {
+        client.set('test2', 'value2');
+        resolve('test2 set successfully');
+      }
+    }
+  ]).then(() => console.log('test2 set successfully'));
 }
 
 client.on('error', err => console.log('Redis Client Error', err));
